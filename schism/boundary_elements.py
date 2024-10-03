@@ -93,6 +93,7 @@ def get_options():
 def main(args):
     print("Reading csv...")
     pts = pd.read_csv(args.csv)
+    pts['Poi'] = np.array([i.split('-')[-1] for i in pts.flowpath_id.values],dtype='int')
     print("Reading grid...")
     mesh = buffer_to_dict(args.grid)
     
@@ -124,7 +125,7 @@ def main(args):
     print("Mapping ids to elements...")
     rv = {}
     nodes = {}
-    for i, _id in enumerate(pts.flowpath_id):
+    for i, _id in enumerate(pts.hl_link):
         enodes = element_nodes[i]
         elidx = np.isin(elements, enodes).sum(axis=1).argmax()
         nwmel = elements_ids[elidx]
@@ -132,8 +133,8 @@ def main(args):
         nodes[_id] = elements[elidx]
        
     rv = pd.DataFrame({'Element': rv, 'Node': nodes}, index=pd.Index(rv.keys(), name='Id'))
-    pts = pts.set_index('flowpath_id')
-    rv['Poi'] = pts['poi_id']
+    pts = pts.set_index('hl_link')
+    rv['Poi'] = pts['Poi']
     rv = rv.explode("Node")
     coords = mesh['nodes'].loc[rv.Node.unique(), ["x", "y"]].rename(columns={"x": "Longitude", "y": "Latitude"})
     rv = rv.merge(coords, left_on="Node", how="left", right_index=True)
@@ -148,7 +149,7 @@ def main(args):
         for m in (srcs, sinks):            
             out.write(f"{np.count_nonzero(m)}\n")
             els = rv.loc[m, "Element"]
-            nids = pts.loc[m, "poi_id"]
+            nids = pts.loc[m, "Poi"]
             for e, i in zip(els.values, nids.values):
                 out.write(f"{e} {i}\n")
         
